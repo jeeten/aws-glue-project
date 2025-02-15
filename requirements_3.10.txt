@@ -1,0 +1,7 @@
+# pip3 install --upgrade jupyter boto3 aws-glue-sessions
+# pip3 install pyspark
+# pip3 install git+https://github.com/awslabs/aws-glue-libs.git
+boto3
+pandas
+pyarrow
+s3fs

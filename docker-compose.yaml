@@ -19,8 +19,6 @@ services:
     ports:
       - "4040:4040"
       - "18080:18080"
-      - "8998:8998"
-      - "8888:8888"
 #    command: >
 #      spark-submit /home/glue_user/workspace/${SCRIPT_FILE_NAME}
     stdin_open: true

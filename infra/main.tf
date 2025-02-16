@@ -1,30 +1,71 @@
+# glue_role_arn = arn:aws:iam::248189927181:role/glue_interactive_role
+
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
-  region = "us-east-1"  # Change to your preferred AWS region
+  region = "us-east-1"
 }
 
 # S3 Buckets
+resource "aws_s3_bucket" "script" {
+  bucket = "dev-etl-job"
+}
+
 resource "aws_s3_bucket" "raw_data" {
-  bucket = "my-raw-data-bucket"
+  bucket = "dev-batch-raw-data"
+}
+
+resource "aws_s3_bucket" "intransit" {
+  bucket = "dev-batch-intransit"
 }
 
 resource "aws_s3_bucket" "processed_data" {
-  bucket = "my-processed-data-bucket"
+  bucket = "dev-batch-processed-data"
 }
 
 resource "aws_s3_bucket" "logs" {
-  bucket = "my-logs-bucket"
+  bucket = "dev-etl-job-log"
 }
 
 resource "aws_s3_bucket" "archive" {
-  bucket = "my-archive-bucket"
+  bucket = "dev-etl-job-archive"
 }
 
 resource "aws_s3_bucket" "backup" {
-  bucket = "my-backup-bucket"
+  bucket = "dev-etl-job-backup"
 }
 
 resource "aws_s3_bucket" "error" {
-  bucket = "my-error-bucket"
+  bucket = "dev-etl-job-error"
+}
+
+
+resource "aws_iam_policy" "pass_role_policy" {
+  name   = "GluePassRolePolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        Resource = aws_iam_role.glue_role.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "pass_role_attach" {
+  role       = aws_iam_role.glue_role.name
+  policy_arn = aws_iam_policy.pass_role_policy.arn
 }
 
 # IAM Role for Glue
@@ -44,17 +85,26 @@ resource "aws_iam_role" "glue_role" {
 EOF
 }
 
+
+
+
+# Attach AWS Managed Glue Policy
+resource "aws_iam_policy_attachment" "glue_full_access" {
+  name       = "glue-full-access"
+  roles      = [aws_iam_role.glue_role.name]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+}
+
+
 resource "aws_iam_policy_attachment" "glue_s3_access" {
   name       = "glue-s3-access"
   roles      = [aws_iam_role.glue_role.name]
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-resource "aws_iam_policy_attachment" "glue_redshift_access" {
-  name       = "glue-redshift-access"
-  roles      = [aws_iam_role.glue_role.name]
-  policy_arn = "arn:aws:iam::aws:policy/AWSGlueServiceRole"
-}
+
+
+
 
 # Glue Crawler
 resource "aws_glue_catalog_database" "my_database" {
@@ -73,12 +123,22 @@ resource "aws_glue_crawler" "my_crawler" {
 
 # Glue Job
 resource "aws_glue_job" "my_job" {
-  name     = "my-glue-job"
-  role_arn = aws_iam_role.glue_role.arn
+  name            = "my-glue-job"
+  role_arn        = aws_iam_role.glue_role.arn
+  timeout         = 30  # Increased timeout
+  glue_version    = "4.0"
+  
+  execution_property {
+    max_concurrent_runs = 1
+  }
+
+  worker_type       = "G.1X"
+  number_of_workers = 2
 
   command {
-    script_location = "s3://${aws_s3_bucket.raw_data.bucket}/scripts/my_glue_script.py"
+    script_location = "s3://${aws_s3_bucket.script.bucket}/scripts/my_glue_script.py"
     name            = "glueetl"
+    python_version  = "3"
   }
 }
 

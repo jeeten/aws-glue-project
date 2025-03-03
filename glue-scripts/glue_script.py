@@ -53,7 +53,7 @@ spark_df.show(5)
 
 # Convert to GlueDynamic DataFrame and save
 # output_dynamic_frame = DynamicFrame.fromDF(spark_df, glueContext,"updated_glue_df")
-output_dynamic_frame = glueContext.create_dynamic_frame.from_dataframe(spark_df, glueContext)
+output_dynamic_frame = DynamicFrame.fromDF(spark_df, glueContext)
 
 # Store the transformation file into S3
 glueContext.write_dynamic_frame.from_options(
